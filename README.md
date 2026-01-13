@@ -10,3 +10,65 @@ This project is a version of eaglercraftX based on Minecraft 1.12, specifically 
 ## License
 
 This project is licensed under the [MIT License](https://opensource.org/licenses/MIT).
+dont use the link up at the top if it's blocked; go to https://lumin0sity-dev.github.io/1.12-eaglercraftx/
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+｜#╹ー╹｜ツ hi there... go back up plz
