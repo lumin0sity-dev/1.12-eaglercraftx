@@ -15,13 +15,64 @@
 		<script type="text/javascript" src="bootstrap.js"></script>
 		<script type="text/javascript">
 			"use strict";
+
+			// IndexedDB mitigation for sporadic:
+			// InvalidStateError: Failed to execute 'transaction' on 'IDBDatabase': The database connection is closing.
+			// This is a best-effort mitigation (especially on ChromeOS during heavy UI transitions like leaving a server).
+			(function installIndexedDBMitigation() {
+				try {
+					if (typeof window.IDBDatabase === "undefined" || !window.IDBDatabase || !window.IDBDatabase.prototype) return;
+
+					let shuttingDown = false;
+
+					// If the page is being hidden/closed, avoid starting new IDB work.
+					window.addEventListener("pagehide", () => { shuttingDown = true; }, { capture: true });
+
+					// Some Chromium builds fire visibilitychange during tab discard / background.
+					document.addEventListener("visibilitychange", () => {
+						if (document.visibilityState === "hidden") shuttingDown = true;
+					}, { capture: true });
+
+					const origTxn = window.IDBDatabase.prototype.transaction;
+					if (typeof origTxn !== "function" || origTxn.__eaglerMitigated) return;
+
+					function shouldRetry(e) {
+						const name = (e && e.name) ? String(e.name) : "";
+						const msg = (e && e.message) ? String(e.message) : "";
+						return name === "InvalidStateError" && /connection is closing/i.test(msg);
+					}
+
+					function wrappedTransaction(storeNames, mode, options) {
+						if (shuttingDown) {
+							// Make it an AbortError so callers that do handle aborts can treat it as non-fatal.
+							throw new DOMException("Aborted due to shutdown", "AbortError");
+						}
+						try {
+							return origTxn.call(this, storeNames, mode, options);
+						} catch (e) {
+							if (shouldRetry(e)) {
+								// Retry once immediately; if it still fails, bubble up the error.
+								return origTxn.call(this, storeNames, mode, options);
+							}
+							throw e;
+						}
+					}
+
+					wrappedTransaction.__eaglerMitigated = true;
+					window.IDBDatabase.prototype.transaction = wrappedTransaction;
+				} catch (e) {
+					// Never block startup if the patch can't install
+					console.warn("IndexedDB mitigation failed to install:", e);
+				}
+			})();
+
 			window.addEventListener("load", function() {
 				if(window.location.href.indexOf("file:") === 0) {
 					alert("HTTP please, do not open this file locally, run a local HTTP server and load it via HTTP");
 				}else {
-					
+
 					// %%%%%%%%% launch options %%%%%%%%%%%%
-					
+
 					var relayId = Math.floor(Math.random() * 3);
 					window.eaglercraftXOpts = {
 						demoMode: false,
@@ -37,21 +88,24 @@
 							{ addr: "wss://relay.shhnowisnottheti.me/", comment: "ayunami relay #1", primary: relayId == 2 }
 						]
 					};
-					
+
 					// %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-					
+
 					var q = window.location.search;
 					if((typeof q === "string") && q[0] === "?" && (typeof window.URLSearchParams !== "undefined")) {
 						q = new window.URLSearchParams(q);
 						var s = q.get("server");
 						if(s) window.eaglercraftXOpts.joinServer = s;
 					}
-					
+
 					main();
-					
+
 				}
 			});
 		</script>
+	</head>
+	<body style="margin:0px;width:100%;height:100%;overflow:hidden;background-color:black;" id="game_frame"></body>
+</html>
 	</head>
 	<body style="margin:0px;width:100%;height:100%;overflow:hidden;background-color:black;" id="game_frame"></body>
 </html>
